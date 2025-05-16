@@ -1,0 +1,25 @@
+{
+    "SETUP": {
+        "type": "python",
+        "path": "gvagate.py",
+        "class": "GvaGate"
+    },
+    "METHODS": {
+        "validate_id_user": {
+            "allowed_groups": [
+                "anonymous"
+            ]
+        },
+        "store_id_user": {
+            "allowed_groups": [
+                "anonymous"
+            ]
+       },
+        "wipe_cache": {
+            "allowed_groups": [
+                "sudo",
+                "admins"
+            ]
+        }
+    }
+}

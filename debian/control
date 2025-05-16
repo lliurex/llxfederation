@@ -1,0 +1,38 @@
+Source: llxfederation
+Section: python 
+Priority: optional
+Maintainer: Lliurex Team <lliurex@gva.es>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+Standards-Version: 4.6.2
+Homepage: https://lliurex.net 
+#Vcs-Browser: https://salsa.debian.org/debian/llxfederation
+
+Package: llxfederation
+Architecture: all
+Multi-Arch: foreign
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ python3-msal,
+ python3-yaml,
+ python3-n4d-client,
+ python3-bson,
+ python3-bcrypt
+Description: Backend for validating with federation service
+ Validate with GVA service
+
+
+Package: n4d-llxfederation
+Architecture: all
+Multi-Arch: foreign
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ python3-msal,
+ python3-yaml,
+ python3-n4d-client,
+Description: N4d plugin to cache logins
+ Cache for validation users on federation service
+

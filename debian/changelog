@@ -1,0 +1,11 @@
+llxfederation (0.2) noble; urgency=medium
+
+  * Migrate to noble
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Mon, 12 May 2025 10:30:34 +0200
+
+llxfederation (0.1) jammy; urgency=medium
+
+  * Initial release.
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Wed, 26 Mar 2025 17:55:55 +0100

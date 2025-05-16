@@ -1,3 +1,9 @@
+llxfederation (0.3) noble; urgency=medium
+
+  * Stable version
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Fri, 16 May 2025 14:01:41 +0200
+
 llxfederation (0.2) noble; urgency=medium
 
   * Migrate to noble

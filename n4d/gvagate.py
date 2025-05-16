@@ -34,7 +34,7 @@ class GvaGate:
         if self.config_path.exists():
             with self.config_path.open("r",encoding="utf-8") as fd:
                 aux_config = safe_load(fd)
-        self.config = aux_config | default_config
+        self.config = default_config | aux_config
 
     def connect(self) -> bool:
         '''

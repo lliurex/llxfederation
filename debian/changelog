@@ -1,3 +1,9 @@
+llxfederation (0.2) jammy; urgency=medium
+
+  * Jammy stable version 
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Fri, 16 May 2025 14:02:28 +0200
+
 llxfederation (0.1) jammy; urgency=medium
 
   * Initial release.

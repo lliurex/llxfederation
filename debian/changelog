@@ -1,3 +1,9 @@
+llxfederation (0.3.2) noble; urgency=medium
+
+  * add config dir
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Fri, 25 Jul 2025 13:12:13 +0200
+
 llxfederation (0.3.1) noble; urgency=medium
 
   * Fix bug with load config

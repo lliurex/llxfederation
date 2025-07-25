@@ -1,3 +1,9 @@
+llxfederation (0.3.3) noble; urgency=medium
+
+  * Create metapackage to validation by federation
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Fri, 25 Jul 2025 14:15:44 +0200
+
 llxfederation (0.3.2) noble; urgency=medium
 
   * add config dir

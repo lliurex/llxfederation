@@ -4,10 +4,12 @@ import json
 from yaml import safe_load
 from pathlib import Path
 from msal import PublicClientApplication
+import ldap
 import grp
 from functools import reduce
 from n4d.client import Client
 from n4d.client import CallFailedError
+
 
 class User:
     def __init__(self, login) -> None:
@@ -16,7 +18,7 @@ class User:
         self.surname = ""
         self.home = "/home/{}".format(login)
         self.shell = "/bin/bash"
-        self.uid = None
+        self.uid = -1
         self.groups = []
 
     def __str__(self) -> str:
@@ -37,7 +39,7 @@ class CdcMapper:
         self.alu_groups = []
         self.doc_groups = []
         self.adm_groups = []
-        self.default_info = {"alu":False, "doc":False, "adm": False}
+        self.default_info = {"alu": False, "doc": False, "adm": False}
 
     def check_json(self, info):
         if "name" not in info.keys():
@@ -93,7 +95,7 @@ class CdcMapper:
 
 class GvaGate:
     def __init__(self, args) -> None:
-        self.supported_methods = ["id", "adi"]
+        self.supported_methods = ["id", "adi", "cdc"]
         self.config_path = Path("/etc/gvagate/config.yml")
         self.load_config()
         if len(args) > 2:
@@ -105,31 +107,29 @@ class GvaGate:
             self.password = args[1]
             self.method = "id"
         else:
-            sys.exit(13) # Bad arguments
-        self.default_user_struc = {"upn": "", "given_name":"", "family_name":""}
-        
+            sys.exit(13)  # Bad arguments
+        self.default_user_struc = {"upn": "", "given_name": "", "family_name": ""}
         if len(self.user.split("@")) < 2:
-            if "." in self.user :
+            if "." in self.user:
                 self.user = self.user + "@{}".format(self.config["global_domain"])
             else:
                 self.user = self.user + "@{}.{}".format(self.config["student_domain_prefix"],self.config["global_domain"])
-
 
     def load_config(self) -> None:
         '''
         Load default config and replace values with customization on /etc/gvagate/config.yml
         '''
-        default_config = { 
+        default_config = {
                        "id_app": "",
-                       "url_auth" :"",
-                       "global_domain" : "",
+                       "url_auth": "",
+                       "global_domain": "",
                        "student_domain_prefix": "",
                     }
         aux_config = {}
         if self.config_path.exists():
-            with self.config_path.open("r",encoding="utf-8") as fd:
+            with self.config_path.open("r", encoding="utf-8") as fd:
                 aux_config = safe_load(fd)
-        self.config = default_config | aux_config 
+        self.config = default_config | aux_config
 
     def auth_federation(self):
 
@@ -143,7 +143,7 @@ class GvaGate:
             )
             if "error" in result.keys():
                 if result["error"] == "invalid_client":
-                    ## Invalid ID_APP
+                    # Invalid ID_APP
                     sys.exit(12)
                 elif result["error"] == "invalid_grant":
                     # password wrong , user wrong or domain wrong
@@ -156,10 +156,10 @@ class GvaGate:
                 user = self.populate_user_object(result["id_token_claims"])
             else:
                 sys.exit(11)
-        except Exception as e:
+        except Exception:
             # Undefined Error
             sys.exit(20)
-        # sync with adi 
+        # sync with adi
         n4d_local = Client("https://localhost:9779")
         try:
             server = n4d_local.get_variable('SRV_IP')
@@ -185,7 +185,7 @@ class GvaGate:
         if server is not None:
             n4d_remote = Client("https://"+server+":9779")
             try:
-                result = n4d_remote.GvaGate.validate_id_user( self.user, self.password )
+                result = n4d_remote.GvaGate.validate_id_user(self.user, self.password)
                 user = self.populate_user_object(result)
             except CallFailedError as e:
                 if e.code == -10:
@@ -194,13 +194,142 @@ class GvaGate:
                     sys.exit(3)
                 if e.code == -20:
                     sys.exit(2)
-            except Exception as e:
+            except Exception:
                 # Adi not found
                 sys.exit(14)
-        
         print(user)
         sys.exit(0)
-    
+
+    def auth_cdc(self):
+
+        credentials_path = Path("/etc/cdc/configuration")
+        group_schemas_name = "https://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid"
+        if credentials_path.exists():
+            with credentials_path.open("r") as fd:
+                user_bind = fd.readline().strip()
+                passwd_bind = fd.readline().strip()
+                base_dn = fd.readline().strip()
+                ldap_uri = fd.readline().strip()
+        else:
+            user_bind = ""
+            passwd_bind = ""
+            base_dn = ""
+            ldap_uri = ""
+        try:
+            conn = ldap.initialize(ldap_uri)
+            conn.protocol_version = 3
+            conn.set_option(ldap.OPT_REFERRALS, 0)
+        except Exception:
+            sys.exit(10)
+        try:
+            conn.simple_bind_s(user_bind, passwd_bind)
+            cadena = "(sAMAccountName=" + self.user.split("@")[0] + ")"
+            r = conn.search_s(base_dn, ldap.SCOPE_SUBTREE, cadena)
+            user_info = None
+            result = {}
+            for x in r:
+                if x[0] is not None:
+                    user_info = x[1]
+            if user_info is not None:
+                upn = ""
+                for x in ["userPrincipalName", "sAMAccountName"]:
+                    if x in user_info:
+                        upn = user_info[x][0].decode('utf-8')
+                        break
+                given_name = ""
+                for x in ["givenName", "displayName"]:
+                    if x in user_info:
+                        if x == "displayName":
+                            given_name = user_info[x][0].decode('utf-8').split(",")[1].strip()
+                            break
+                        if x == "givenName":
+                            given_name = user_info[x][0].decode('utf-8')
+                            break
+                family_name = ""
+                for x in ["sn", "displayName"]:
+                    if x in user_info:
+                        if x == "displayName":
+                            family_name = user_info[x][0].decode('utf-8').split(",")[0].strip()
+                            break
+                        if x == "sn":
+                            family_name = user_info[x][0].decode('utf-8')
+                            break
+
+                primarysid = self.sid_to_str(user_info["objectSid"][0])
+                result = {
+                        "id_token_claims":
+                        {
+                            "upn": upn,
+                            "given_name": given_name,
+                            "family_name": family_name,
+                            "primarysid": primarysid,
+                            "group": [],
+                            group_schemas_name: []
+                        }
+                    }
+                user_group = [x.decode('utf-8') for x in user_info["memberOf"]]
+                for x in user_group:
+                    try:
+                        y = conn.search_s(x, ldap.SCOPE_BASE)
+                        for i in y:
+                            if i[0] is not None:
+                                result["id_token_claims"]["group"].append(i[1]['cn'][0].decode('utf-8'))
+                                result["id_token_claims"][group_schemas_name].append(self.sid_to_str(i[1]["objectSid"][0]))
+                    except Exception:
+                        pass
+                try:
+                    conn.bind_s(user_info['distinguishedName'][0].decode('utf-8'),self.password)
+                except Exception as e:
+                    if e.args[0]['result'] == 49:
+                        result["error"] = "invalid_grant"
+                    else:
+                        del result["id_token_claims"]
+
+            if "error" in result.keys():
+                if result["error"] == "invalid_client":
+                    # Invalid ID_APP
+                    sys.exit(12)
+                elif result["error"] == "invalid_grant":
+                    # password wrong , user wrong or domain wrong
+                    sys.exit(4)
+                elif result["error"] == "temporary_unavailable":
+                    sys.exit(10)
+                elif result["error"] == "interaction_required":
+                    sys.exit(5)
+            if "id_token_claims" in result.keys():
+                user = self.populate_user_object(result["id_token_claims"])
+            else:
+                sys.exit(11)
+        except Exception as e:
+            # Undefined Error
+            print(e)
+            sys.exit(20)
+        # sync with adi 
+        n4d_local = Client("https://localhost:9779")
+        try:
+            server = n4d_local.get_variable('SRV_IP')
+        except Exception:
+            server = None
+        if server is not None:
+            n4d_remote = Client("https://"+server+":9779")
+            try:
+                n4d_remote.GvaGate.store_id_user(result["id_token_claims"], self.password,result["refresh_token"] )
+            except Exception:
+                pass
+
+        print(user)
+        sys.exit(0)
+
+    def sid_to_str(self, sid_bytes):
+        revision = sid_bytes[0]
+        sub_authority_count = sid_bytes[1]
+        identifier_authority = int.from_bytes(sid_bytes[2:8], byteorder='big')
+        sub_authorities = [
+            int.from_bytes(sid_bytes[8 + i*4:12 + i*4], byteorder='little')
+            for i in range(sub_authority_count)
+        ]
+        return f"S-{revision}-{identifier_authority}-" + "-".join(map(str, sub_authorities))
+
     def populate_user_object(self, info):
         data = self.default_user_struc.copy()
         data.update(info)
@@ -208,7 +337,6 @@ class GvaGate:
         user.name = data["given_name"]
         user.surname = data["family_name"]
         user.uid = int(info["primarysid"].split("-")[-1])
-
         user_mod = 0
 
         user.groups = []
@@ -218,7 +346,7 @@ class GvaGate:
             if type(data[key_groupsid]) is str:
                 data[key_groupsid] = [data[key_groupsid]]
             if type(data["group"]) is str:
-                data["group"]=[data["group"]]
+                data["group"] = [data["group"]]
             for x in data["group"]:
                 group_lower = x.lower()
                 if "docente" in group_lower:
@@ -230,9 +358,9 @@ class GvaGate:
             cdcmapper = CdcMapper()
             aux_group = cdcmapper.get_groups(user_mod)
             user.groups = aux_group
-            for x in range(0,len(data["group"])):
+            for x in range(0, len(data["group"])):
                 try:
-                    temp_group = {"name":data["group"][x], "gid":int(data[key_groupsid][x].split("-")[-1])}
+                    temp_group = {"name": data["group"][x], "gid": int(data[key_groupsid][x].split("-")[-1])}
                     user.groups.append(temp_group)
                 except Exception:
                     pass
@@ -251,10 +379,12 @@ class GvaGate:
             self.auth_federation()
         elif m == "adi":
             self.auth_adi()
+        elif m == "cdc":
+            self.auth_cdc()
+
 
 if __name__ == "__main__":
     linea = sys.stdin.readline()
     args = linea.strip().split(" ")
-
     g = GvaGate(args)
     g.run()

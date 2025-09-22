@@ -1,3 +1,10 @@
+llxfederation (0.4) noble; urgency=medium
+
+  * Add dependencies
+  * Add validation by cdc
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Mon, 22 Sep 2025 15:17:10 +0200
+
 llxfederation (0.3.3) noble; urgency=medium
 
   * Create metapackage to validation by federation

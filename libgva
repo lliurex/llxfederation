@@ -243,8 +243,8 @@ class GvaGate:
                     "primarysid": primarysid,
                     "group": [],
                     GvaGate.group_schemas_name: [],
-                    "error": ""
-                }
+                },
+                "error": ""
             }
         return result
 
@@ -331,7 +331,7 @@ class GvaGate:
                         result["error"] = "invalid_grant"
                     else:
                         del result["id_token_claims"]
-            self.proccess_exit_error(self, result["error"])
+            self.proccess_exit_error(result["error"])
             if "id_token_claims" in result.keys():
                 user = self.populate_user_object(result["id_token_claims"])
             else:
@@ -339,6 +339,7 @@ class GvaGate:
         except Exception:
             # Undefined Error
             self.proccess_exit_error("undefined_error")
+        result["refresh_token"] = ""
         self.sync_with_adi(result["id_token_claims"], result["refresh_token"])
         print(user)
 

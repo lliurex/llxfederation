@@ -19,7 +19,9 @@ Depends:
  python3-yaml,
  python3-n4d-client,
  python3-bson,
- python3-bcrypt
+ python3-bcrypt,
+ python3-ldap,
+ python3-sss
 Description: Backend for validating with federation service
  Validate with GVA service
 

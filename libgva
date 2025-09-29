@@ -9,7 +9,8 @@ import grp
 from functools import reduce
 from n4d.client import Client
 from n4d.client import CallFailedError
-import pysss_murmur
+import murmurhash.mrmr as mrmr
+
 
 class User:
     def __init__(self, login) -> None:
@@ -46,6 +47,7 @@ class CdcMapper:
         if "name" not in info.keys():
             return False
         return True
+
 
     def get_groups(self, user_mode):
         groups = []
@@ -149,7 +151,7 @@ class GvaGate:
             app = PublicClientApplication(self.config["id_app"],
                                           authority=self.config["url_auth"])
         except Exception:
-            self.proccess_exit_error("temporary_unavailable")
+            self.process_exit_error("temporary_unavailable")
         try:
             result = app.acquire_token_by_username_password(
                 self.user,
@@ -158,13 +160,13 @@ class GvaGate:
             )
             if "error" not in result.keys():
                 result["error"] = ""
-            self.proccess_exit_error(result["error"])
+            self.process_exit_error(result["error"])
             if "id_token_claims" in result.keys():
                 user = self.populate_user_object(result["id_token_claims"])
             else:
                 sys.exit(11)
         except Exception:
-            self.proccess_exit_error("undefined_error")
+            self.process_exit_error("undefined_error")
         # sync with adi
         n4d_local = Client("https://localhost:9779")
         try:
@@ -189,7 +191,7 @@ class GvaGate:
         try:
             server = n4d_local.get_variable('SRV_IP')
         except Exception:
-            server = None
+            self.process_exit_error("temporary_unavailable")
         if server is not None:
             n4d_remote = Client("https://"+server+":9779")
             try:
@@ -234,6 +236,7 @@ class GvaGate:
                     break
 
         primarysid = self.sid_to_str(user_info["objectSid"][0])
+        primarygid = user_info["primaryGroupID"][0]
         result = {
                 "id_token_claims":
                 {
@@ -241,25 +244,12 @@ class GvaGate:
                     "given_name": given_name,
                     "family_name": family_name,
                     "primarysid": primarysid,
+                    "primarygid": primarygid,
                     "group": [],
                     GvaGate.group_schemas_name: [],
                 },
                 "error": ""
             }
-        return result
-
-    def set_groups_to_ldap_result(self, conn, groups_list, result):
-        for x in groups_list:
-            try:
-                y = conn.search_s(x, ldap.SCOPE_BASE)
-                for i in y:
-                    if i[0] is not None:
-                        result["id_token_claims"]["group"].append(
-                                                i[1]['cn'][0].decode('utf-8'))
-                        result["id_token_claims"][GvaGate.group_schemas_name].append(self.sid_to_str(i[1]["objectSid"][0]))
-            except Exception:
-                pass
-
         return result
 
     def load_ldap_config(self):
@@ -296,8 +286,32 @@ class GvaGate:
         except Exception:
             pass
 
-    def auth_cdc(self):
+    def get_ldap_group_by_sid(self, conn, sid):
+        result = {}
+        try:
+            ldap_result = conn.search_s(sid, ldap.SCOPE_BASE)
+            result['cn'] = ldap_result[0][1]['cn'][0].decode('utf-8')
+            result['sid'] = self.sid_to_str(ldap_result[0][1]["objectSid"][0])
+        except Exception:
+            result = None
+        return result
 
+    def get_ldap_group_by_rid(self, conn, rid, ldap_info):
+        result = {}
+        try:
+            ldap_result = conn.search_s(ldap_info["base_dn"], ldap.SCOPE_BASE)
+            base_sid = self.sid_to_str(ldap_result[0][1]['objectSid'][0])
+            group_sid = base_sid + "-" + str(rid[0].decode('utf-8'))
+            groups_result = conn.search_s(ldap_info["base_dn"], ldap.SCOPE_SUBTREE, "(objectSid={})".format(group_sid) )
+            for x in groups_result:
+                if x[0] is not None:
+                    result['cn'] = x[1]['cn'][0].decode('utf-8')
+                    result['sid'] = self.sid_to_str(x[1]["objectSid"][0])
+        except Exception:
+            result = None
+        return result
+
+    def auth_cdc(self):
         ldap_info = self.load_ldap_config()
         result = {"error": ""}
         try:
@@ -305,7 +319,7 @@ class GvaGate:
             conn.protocol_version = 3
             conn.set_option(ldap.OPT_REFERRALS, 0)
         except Exception:
-            self.proccess_exit_error("temporary_unavailable")
+            self.process_exit_error("temporary_unavailable")
             return
         try:
             conn.simple_bind_s(ldap_info["user_bind"],
@@ -318,10 +332,16 @@ class GvaGate:
                     user_info = x[1]
             if user_info is not None:
                 result = self.set_user_info_to_ldap_result(user_info)
-                user_group = [x.decode('utf-8') for x in user_info["memberOf"]]
-                result = self.set_groups_to_ldap_result(conn,
-                                                        user_group,
-                                                        result)
+                group_list = []
+                for g_item in user_info["memberOf"]:
+                    item = self.get_ldap_group_by_sid(conn, g_item.decode('utf-8'))
+                    if item is not None:
+                        group_list.append(item)
+                if (res := self.get_ldap_group_by_rid(conn, user_info['primaryGroupID'], ldap_info)) is not None:
+                    group_list.append(res)
+                for x in group_list:
+                    result["id_token_claims"]["group"].append(x["cn"])
+                    result["id_token_claims"][GvaGate.group_schemas_name].append(x["sid"])
                 try:
                     conn.simple_bind_s(
                             user_info['distinguishedName'][0].decode('utf-8'),
@@ -331,14 +351,14 @@ class GvaGate:
                         result["error"] = "invalid_grant"
                     else:
                         del result["id_token_claims"]
-            self.proccess_exit_error(result["error"])
+            self.process_exit_error(result["error"])
             if "id_token_claims" in result.keys():
                 user = self.populate_user_object(result["id_token_claims"])
             else:
                 sys.exit(11)
-        except Exception:
+        except Exception as e:
             # Undefined Error
-            self.proccess_exit_error("undefined_error")
+            self.process_exit_error("undefined_error")
         result["refresh_token"] = ""
         self.sync_with_adi(result["id_token_claims"], result["refresh_token"])
         print(user)
@@ -376,11 +396,11 @@ class GvaGate:
         return '-'.join(sid.split('-')[0:-1])
 
     def get_min_range(self, sid, rangesize, maxslices, idmap_lower):
-        hash_value = pysss_murmur.murmurhash3(sid, len(sid), 0xdeadbeef)
+        hash_value = mrmr.hash(sid, 0xdeadbeef)
         new_slice = int(hash_value % maxslices)
         return (rangesize * new_slice) + idmap_lower
 
-    def proccess_exit_error(self, error):
+    def process_exit_error(self, error):
         if error == "":
             return
         list_errors = {
@@ -434,13 +454,14 @@ class GvaGate:
             for x in user.groups:
                 if "default_gid" in x:
                     if x["default_gid"] > max_id:
+                        max_id = x["default_gid"]
                         user.gid = x
         return user
 
     def run(self):
         m = self.method.lower()
         if m not in self.supported_methods:
-            self.proccess_exit_error("unsupported_method")
+            self.process_exit_error("unsupported_method")
         if m == "id":
             self.auth_federation()
         elif m == "adi":

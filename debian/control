@@ -9,6 +9,13 @@ Standards-Version: 4.6.2
 Homepage: https://lliurex.net 
 #Vcs-Browser: https://salsa.debian.org/debian/llxfederation
 
+Package: python3-llxfederation
+Architecture: all
+Depends: python3-ldap,
+	 python3-msal
+Description: Python library to connect different backends
+ Connect with ldap library
+
 Package: llxfederation
 Architecture: all
 Multi-Arch: foreign

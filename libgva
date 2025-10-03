@@ -1,99 +1,11 @@
 #!/usr/bin/env python3
 import sys
-import json
-from yaml import safe_load
-from pathlib import Path
-from msal import PublicClientApplication
-import ldap
-import grp
-from functools import reduce
-from n4d.client import Client
-from n4d.client import CallFailedError
-import murmurhash.mrmr as mrmr
-
-
-class User:
-    def __init__(self, login) -> None:
-        self.login = login
-        self.name = ""
-        self.surname = ""
-        self.home = "/home/{}".format(login)
-        self.shell = "/bin/bash"
-        self.uid = -1
-        self.gid = -1
-        self.groups = []
-
-    def __str__(self) -> str:
-        return json.dumps(self.__dict__, indent=4, ensure_ascii=False)
-
-
-class CdcMapper:
-
-    STUDENTS = 1
-    TEACHERS = 2
-    ADMINS = 4
-
-    def __init__(self) -> None:
-        self.groups_folders = [
-            Path("/usr/share/cdc-mapper/groups"),
-            Path("/etc/cdc-mapper"),
-        ]
-        self.alu_groups = []
-        self.doc_groups = []
-        self.adm_groups = []
-        self.default_info = {"alu": False, "doc": False, "adm": False}
-
-    def check_json(self, info):
-        if "name" not in info.keys():
-            return False
-        return True
-
-
-    def get_groups(self, user_mode):
-        groups = []
-        for folder_path in self.groups_folders:
-            if not folder_path.exists():
-                continue
-            for file_path in folder_path.iterdir():
-                try:
-                    with file_path.open("r") as fd:
-                        temp_info = json.load(fd)
-                except Exception:
-                    temp_info = None
-                if temp_info is not None:
-                    # Define default values for info object
-                    info = self.default_info.copy()
-                    info.update(temp_info)
-                    aux = self.process_group(info, user_mode)
-                    if aux is not None:
-                        groups.append(aux)
-        return groups
-
-    def process_group(self, info, mode):
-        if not self.check_json(info):
-            return None
-        args = {"name": info["name"]}
-        try:
-            args["gid"] = grp.getgrnam(info["name"]).gr_gid
-        except Exception:
-            if "gid" in info:
-                args["gid"] = info["gid"]
-            else:
-                pass
-        if "gid" in info:
-            args["default_id"] = info["gid"]
-        if "default_gid" in info:
-            args["default_gid"] = info["default_gid"]
-        if (self.get_mask([info["adm"], info["doc"], info["alu"]]) & mode) > 0:
-            return args
-        return None
-
-    @staticmethod
-    def _f(a, b):
-        return (a << 1) | b
-
-    def get_mask(self, user_binary):
-        return reduce(CdcMapper._f, user_binary)
+from llxfederation.ad import Ldap   # pyright: ignore[reportMissingImports]
+from llxfederation.user import User  # pyright: ignore[reportMissingImports]
+from llxfederation.federation import Federation   # pyright: ignore[reportMissingImports]
+from llxfederation.adi import Adi   # pyright: ignore[reportMissingImports]
+from n4d.client import Client   # pyright: ignore[reportMissingImports]
+from n4d.client import CallFailedError   # pyright: ignore[reportMissingImports]
 
 
 class GvaGate:
@@ -102,7 +14,6 @@ class GvaGate:
 
     def __init__(self, args) -> None:
         self.supported_methods = ["id", "adi", "cdc"]
-        self.config_path = Path("/etc/gvagate/config.yml")
         if len(args) > 2:
             self.user = args[0]
             self.password = args[1]
@@ -113,292 +24,14 @@ class GvaGate:
             self.method = "id"
         else:
             sys.exit(13)  # Bad arguments
-        self.load_config()
-        self.default_user_struc = {"upn": "",
-                                   "given_name": "",
-                                   "family_name": "",
-                                   }
+        '''
         if len(self.user.split("@")) < 2:
             if "." in self.user:
                 self.user = self.user + "@{}".format(self.config["global_domain"])
             else:
                 self.user = self.user + "@{}.{}".format(self.config["student_domain_prefix"],self.config["global_domain"])
-
-    def load_config(self) -> None:
         '''
-        Load default config and replace values with customization on /etc/gvagate/config.yml
-        '''
-        default_config = {
-                       "id_app": "",
-                       "url_auth": "",
-                       "global_domain": "",
-                       "student_domain_prefix": "",
-                       "rangesize": 200000,
-                       "maxslices": 10000,
-                       "idmap_lower": 200000,
-                       GvaGate.group_schemas_name: []
-                    }
-        aux_config = {}
-        if self.config_path.exists():
-            with self.config_path.open("r", encoding="utf-8") as fd:
-                aux_config = safe_load(fd)
-        self.config = default_config | aux_config
 
-    def auth_federation(self):
-        result = {}
-        user = None
-        try:
-            app = PublicClientApplication(self.config["id_app"],
-                                          authority=self.config["url_auth"])
-        except Exception:
-            self.process_exit_error("temporary_unavailable")
-        try:
-            result = app.acquire_token_by_username_password(
-                self.user,
-                self.password,
-                scopes=["https://lliurex.login/openid"]
-            )
-            if "error" not in result.keys():
-                result["error"] = ""
-            self.process_exit_error(result["error"])
-            if "id_token_claims" in result.keys():
-                user = self.populate_user_object(result["id_token_claims"])
-            else:
-                sys.exit(11)
-        except Exception:
-            self.process_exit_error("undefined_error")
-        # sync with adi
-        n4d_local = Client("https://localhost:9779")
-        try:
-            server = n4d_local.get_variable('SRV_IP')
-        except Exception:
-            server = None
-        if server is not None:
-            n4d_remote = Client("https://"+server+":9779")
-            try:
-                n4d_remote.GvaGate.store_id_user(
-                        result["id_token_claims"],
-                        self.password,
-                        result["refresh_token"])
-            except Exception:
-                pass
-
-        print(user)
-
-    def auth_adi(self):
-        user = User(self.user)
-        n4d_local = Client("https://localhost:9779")
-        try:
-            server = n4d_local.get_variable('SRV_IP')
-        except Exception:
-            self.process_exit_error("temporary_unavailable")
-        if server is not None:
-            n4d_remote = Client("https://"+server+":9779")
-            try:
-                result = n4d_remote.GvaGate.validate_id_user(self.user, self.password)
-                user = self.populate_user_object(result)
-            except CallFailedError as e:
-                if e.code == -10:
-                    sys.exit(1)
-                if e.code == -11:
-                    sys.exit(3)
-                if e.code == -20:
-                    sys.exit(2)
-            except Exception:
-                # Adi not found
-                sys.exit(14)
-        print(user)
-        sys.exit(0)
-
-    def set_user_info_to_ldap_result(self, user_info):
-        upn = ""
-        for x in ["userPrincipalName", "sAMAccountName"]:
-            if x in user_info:
-                upn = user_info[x][0].decode('utf-8')
-                break
-        given_name = ""
-        for x in ["givenName", "displayName"]:
-            if x in user_info:
-                if x == "displayName":
-                    given_name = user_info[x][0].decode('utf-8').split(",")[1].strip()
-                    break
-                if x == "givenName":
-                    given_name = user_info[x][0].decode('utf-8')
-                    break
-        family_name = ""
-        for x in ["sn", "displayName"]:
-            if x in user_info:
-                if x == "displayName":
-                    family_name = user_info[x][0].decode('utf-8').split(",")[0].strip()
-                    break
-                if x == "sn":
-                    family_name = user_info[x][0].decode('utf-8')
-                    break
-
-        primarysid = self.sid_to_str(user_info["objectSid"][0])
-        primarygid = user_info["primaryGroupID"][0]
-        result = {
-                "id_token_claims":
-                {
-                    "upn": upn,
-                    "given_name": given_name,
-                    "family_name": family_name,
-                    "primarysid": primarysid,
-                    "primarygid": primarygid,
-                    "group": [],
-                    GvaGate.group_schemas_name: [],
-                },
-                "error": ""
-            }
-        return result
-
-    def load_ldap_config(self):
-        credentials_path = Path("/etc/cdc/configuration")
-        if credentials_path.exists():
-            with credentials_path.open("r") as fd:
-                user_bind = fd.readline().strip()
-                passwd_bind = fd.readline().strip()
-                base_dn = fd.readline().strip()
-                ldap_uri = fd.readline().strip()
-        else:
-            user_bind = ""
-            passwd_bind = ""
-            base_dn = ""
-            ldap_uri = ""
-        return {
-                "user_bind": user_bind,
-                "passwd_bind": passwd_bind,
-                "base_dn": base_dn,
-                "ldap_uri": ldap_uri
-                }
-
-    def sync_with_adi(self, user_info, refresh_token):
-        n4d_local = Client("https://localhost:9779")
-        try:
-            server = n4d_local.get_variable('SRV_IP')
-        except Exception:
-            return
-        n4d_remote = Client("https://"+server+":9779")
-        try:
-            n4d_remote.GvaGate.store_id_user(user_info,
-                                             self.password,
-                                             refresh_token)
-        except Exception:
-            pass
-
-    def get_ldap_group_by_sid(self, conn, sid):
-        result = {}
-        try:
-            ldap_result = conn.search_s(sid, ldap.SCOPE_BASE)
-            result['cn'] = ldap_result[0][1]['cn'][0].decode('utf-8')
-            result['sid'] = self.sid_to_str(ldap_result[0][1]["objectSid"][0])
-        except Exception:
-            result = None
-        return result
-
-    def get_ldap_group_by_rid(self, conn, rid, ldap_info):
-        result = {}
-        try:
-            ldap_result = conn.search_s(ldap_info["base_dn"], ldap.SCOPE_BASE)
-            base_sid = self.sid_to_str(ldap_result[0][1]['objectSid'][0])
-            group_sid = base_sid + "-" + str(rid[0].decode('utf-8'))
-            groups_result = conn.search_s(ldap_info["base_dn"], ldap.SCOPE_SUBTREE, "(objectSid={})".format(group_sid) )
-            for x in groups_result:
-                if x[0] is not None:
-                    result['cn'] = x[1]['cn'][0].decode('utf-8')
-                    result['sid'] = self.sid_to_str(x[1]["objectSid"][0])
-        except Exception:
-            result = None
-        return result
-
-    def auth_cdc(self):
-        ldap_info = self.load_ldap_config()
-        result = {"error": ""}
-        try:
-            conn = ldap.initialize(ldap_info["ldap_uri"])
-            conn.protocol_version = 3
-            conn.set_option(ldap.OPT_REFERRALS, 0)
-        except Exception:
-            self.process_exit_error("temporary_unavailable")
-            return
-        try:
-            conn.simple_bind_s(ldap_info["user_bind"],
-                               ldap_info["passwd_bind"])
-            cadena = "(sAMAccountName=" + self.user.split("@")[0] + ")"
-            r = conn.search_s(ldap_info["base_dn"], ldap.SCOPE_SUBTREE, cadena)
-            user_info = None
-            for x in r:
-                if x[0] is not None:
-                    user_info = x[1]
-            if user_info is not None:
-                result = self.set_user_info_to_ldap_result(user_info)
-                group_list = []
-                for g_item in user_info["memberOf"]:
-                    item = self.get_ldap_group_by_sid(conn, g_item.decode('utf-8'))
-                    if item is not None:
-                        group_list.append(item)
-                if (res := self.get_ldap_group_by_rid(conn, user_info['primaryGroupID'], ldap_info)) is not None:
-                    group_list.append(res)
-                for x in group_list:
-                    result["id_token_claims"]["group"].append(x["cn"])
-                    result["id_token_claims"][GvaGate.group_schemas_name].append(x["sid"])
-                try:
-                    conn.simple_bind_s(
-                            user_info['distinguishedName'][0].decode('utf-8'),
-                            self.password)
-                except Exception as e:
-                    if e.args[0]['result'] == 49:
-                        result["error"] = "invalid_grant"
-                    else:
-                        del result["id_token_claims"]
-            self.process_exit_error(result["error"])
-            if "id_token_claims" in result.keys():
-                user = self.populate_user_object(result["id_token_claims"])
-            else:
-                sys.exit(11)
-        except Exception as e:
-            # Undefined Error
-            self.process_exit_error("undefined_error")
-        result["refresh_token"] = ""
-        self.sync_with_adi(result["id_token_claims"], result["refresh_token"])
-        print(user)
-
-    def sid_to_str(self, sid_bytes):
-        revision = sid_bytes[0]
-        sub_authority_count = sid_bytes[1]
-        identifier_authority = int.from_bytes(sid_bytes[2:8], byteorder='big')
-        sub_authorities = [
-            int.from_bytes(sid_bytes[8 + i*4:12 + i*4], byteorder='little')
-            for i in range(sub_authority_count)
-        ]
-        return f"S-{revision}-{identifier_authority}-" + "-".join(map(str, sub_authorities))
-
-    def get_unix_uid_from_sid(self, sid):
-        rid = self.get_rid_from_sid(sid)
-        domain_sid = self.get_domain_sid(sid)
-        first_rid = self.get_first_rid(self.config['rangesize'], rid)
-        aux_domain_sid = domain_sid
-        if first_rid != 0:
-            aux_domain_sid = domain_sid + "-" + str(first_rid)
-        min_range = self.get_min_range(aux_domain_sid,
-                                       self.config['rangesize'],
-                                       self.config['maxslices'],
-                                       self.config['idmap_lower'])
-        return min_range + (rid - first_rid)
-
-    def get_rid_from_sid(self, sid):
-        return int(sid.split('-')[-1])
-
-    def get_first_rid(self, rangesize, rid):
-        return int(rid / rangesize) * rangesize
-
-    def get_domain_sid(self, sid):
-        return '-'.join(sid.split('-')[0:-1])
-
-    def get_min_range(self, sid, rangesize, maxslices, idmap_lower):
-        hash_value = mrmr.hash(sid, 0xdeadbeef)
-        new_slice = int(hash_value % maxslices)
-        return (rangesize * new_slice) + idmap_lower
 
     def process_exit_error(self, error):
         if error == "":
@@ -409,65 +42,61 @@ class GvaGate:
                 "temporary_unavailable": 10,
                 "interaction_required": 5,
                 "undefined_error": 20,
-                "unsupported_method": 13
+                "unsupported_method": 13,
+                "invalid response": 11
                 }
         if error in list_errors:
             sys.exit(list_errors[error])
 
-    def populate_user_object(self, info):
-        data = self.default_user_struc.copy()
-        data.update(info)
-        user = User(data["upn"].split("@")[0])
-        user.name = data["given_name"]
-        user.surname = data["family_name"]
-        user.uid = self.get_unix_uid_from_sid(info["primarysid"])
-        user_mod = 0
-
-        user.groups = []
-        if GvaGate.group_schemas_name in data and "group" in data:
-
-            if type(data[GvaGate.group_schemas_name]) is str:
-                data[GvaGate.group_schemas_name] = [data[GvaGate.group_schemas_name]]
-            if type(data["group"]) is str:
-                data["group"] = [data["group"]]
-            for x in data["group"]:
-                group_lower = x.lower()
-                if "docente" in group_lower:
-                    user_mod = user_mod | CdcMapper.TEACHERS
-                if "alumno" in group_lower:
-                    user_mod = user_mod | CdcMapper.STUDENTS
-                if "admin" in group_lower:
-                    user_mod = user_mod | CdcMapper.ADMINS
-            cdcmapper = CdcMapper()
-            aux_group = cdcmapper.get_groups(user_mod)
-            user.groups = aux_group
-            for x in range(0, len(data["group"])):
-                try:
-                    temp_group = {
-                            "name": data["group"][x],
-                            "gid": self.get_unix_uid_from_sid(data[GvaGate.group_schemas_name][x])
-                            }
-                    user.groups.append(temp_group)
-                except Exception:
-                    pass
-            max_id = 0
-            for x in user.groups:
-                if "default_gid" in x:
-                    if x["default_gid"] > max_id:
-                        max_id = x["default_gid"]
-                        user.gid = x
+    def auth_cdc(self):
+        ldap_provider = Ldap()
+        user, error = ldap_provider.auth_cdc(self.user, self.password)
+        if error is not None:
+            self.process_exit_error(error)
+        self.sync_with_adi()
         return user
+
+    def auth_federation(self):
+        f_provider = Federation()
+        user, error = f_provider.auth_federation(self.user, self.password)
+        if error is not None:
+            self.process_exit_error(error)
+        self.sync_with_adi()
+        return user
+
+    def auth_adi(self):
+        a_provider = Adi()
+        user, error = a_provider.auth_adi(self.user, self.password)
+        if error is not None:
+            self.process_exit_error(error)
+        return user
+
+    def sync_with_adi(self):
+        n4d_local = Client("https://localhost:9779")
+        try:
+            server = n4d_local.get_variable('SRV_IP')
+        except Exception:
+            server = None
+        if server is not None:
+            n4d_remote = Client("https://"+server+":9779")
+            try:
+                n4d_remote.GvaGate.store_id_user(self.user, self.password)
+            except Exception:
+                pass
 
     def run(self):
         m = self.method.lower()
         if m not in self.supported_methods:
             self.process_exit_error("unsupported_method")
         if m == "id":
-            self.auth_federation()
+            user = self.auth_federation()
         elif m == "adi":
-            self.auth_adi()
+            user = self.auth_adi()
         elif m == "cdc":
-            self.auth_cdc()
+            user = self.auth_cdc()
+        else:
+            return
+        print(user)
 
 
 if __name__ == "__main__":

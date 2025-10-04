@@ -87,8 +87,8 @@ class Ldap:
                 if x == "sn":
                     family_name = user_info[x][0].decode('utf-8')
                     break
-
-        primarysid = self.sid_to_str(user_info["objectSid"][0])
+        s = SSSDMapper()
+        primarysid = s.get_unix_uid_from_sid(self.sid_to_str(user_info["objectSid"][0]))
         user = User(upn)
         user.name = given_name
         user.surname = family_name
@@ -116,7 +116,7 @@ class Ldap:
         user.populate_user()
         return user
 
-    def auth_cdc(self, user, password):
+    def auth_cdc(self, username, password):
         self.load_config()
         try:
             self.conn = ldap.initialize(self.ldap_uri)
@@ -126,11 +126,11 @@ class Ldap:
             return None, "temporary_unavailable"
         try:
             self.conn.simple_bind_s(self.user_bind, self.passwd_bind)
-            user_info = self.search_user_by_username(user.split("@")[0])
+            user_info = self.search_user_by_username(username.split("@")[0])
             if user_info is not None:
                 user = self.populate_user(user_info)
                 try:
-                    self.conn.simple_bind_s(user, password)
+                    self.conn.simple_bind_s(username, password)
                 except Exception as e:
                     if e.args[0]['result'] == 49:
                         return None, "invalid_grant"

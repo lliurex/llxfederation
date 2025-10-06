@@ -16,7 +16,8 @@ Homepage: https://lliurex.net
 Package: python3-llxfederation
 Architecture: all
 Depends: python3-ldap,
-	 python3-msal
+	 python3-msal,
+	 python3-murmurhash
 Description: Python library to connect different backends
  Connect with ldap library
 

@@ -17,7 +17,11 @@ Package: python3-llxfederation
 Architecture: all
 Depends: python3-ldap,
 	 python3-msal,
-	 python3-murmurhash
+	 python3-murmurhash,
+	 python3-bson,
+	 python3-bcrypt,
+	 python3-n4d-client,
+	 python3-yaml
 Description: Python library to connect different backends
  Connect with ldap library
 
@@ -27,13 +31,8 @@ Multi-Arch: foreign
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- python3-msal,
  python3-yaml,
- python3-n4d-client,
- python3-bson,
- python3-bcrypt,
- python3-ldap,
- python3-sss
+ python3-llxfederation
 Description: Backend for validating with federation service
  Validate with GVA service
 
@@ -44,9 +43,8 @@ Multi-Arch: foreign
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- python3-msal,
- python3-yaml,
  python3-n4d-client,
+ python3-llxfederation
 Description: N4d plugin to cache logins
  Cache for validation users on federation service
 

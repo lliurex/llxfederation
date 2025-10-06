@@ -42,9 +42,8 @@ class Federation:
         user.uid = s.get_unix_uid_from_sid(result["primarysid"])
         for x in range(0, len(data["group"])):
             try:
-                g = Group(data["group"][x])
-                g.gid = s.get_unix_uid_from_sid(data[Federation.group_schemas_name][x])
-                user.group.append(g)
+                g = Group(data["group"][x], s.get_unix_uid_from_sid(data[Federation.group_schemas_name][x]))
+                user.groups.append(g)
             except Exception:
                 pass
         user.populate_user()
@@ -54,14 +53,21 @@ class Federation:
         self.load_config()
         result = {}
         user = None
+        patch_username = username
+        if len(username.split("@")) <= 1 :
+            domain = self.config["global_domain"]
+            if "." not in username:
+                domain = self.config["student_domain_prefix"] +"." +domain
+            patch_username = patch_username +"@" + domain
         try:
             app = PublicClientApplication(self.config["id_app"],
-                                          authority=self.config["url_auth"])
+                                          authority=self.config["url_auth"],
+                                          timeout=5)
         except Exception:
             return None, "temporary_unavailable"
         try:
             result = app.acquire_token_by_username_password(
-                username,
+                patch_username,
                 password,
                 scopes=["https://lliurex.login/openid"]
             )

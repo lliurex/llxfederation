@@ -53,7 +53,7 @@ class GvaGate:
         user, error = ldap_provider.auth_cdc(self.user, self.password)
         if error is not None:
             self.process_exit_error(error)
-        self.sync_with_adi()
+        self.sync_with_adi('cdc')
         return user
 
     def auth_federation(self):
@@ -61,7 +61,7 @@ class GvaGate:
         user, error = f_provider.auth_federation(self.user, self.password)
         if error is not None:
             self.process_exit_error(error)
-        self.sync_with_adi()
+        self.sync_with_adi('id')
         return user
 
     def auth_adi(self):
@@ -71,7 +71,7 @@ class GvaGate:
             self.process_exit_error(error)
         return user
 
-    def sync_with_adi(self):
+    def sync_with_adi(self, method):
         n4d_local = Client("https://localhost:9779")
         try:
             server = n4d_local.get_variable('SRV_IP')
@@ -80,7 +80,7 @@ class GvaGate:
         if server is not None:
             n4d_remote = Client("https://"+server+":9779")
             try:
-                n4d_remote.GvaGate.store_id_user(self.user, self.password)
+                n4d_remote.GvaGate.store_id_user(self.user, self.password, method)
             except Exception:
                 pass
 

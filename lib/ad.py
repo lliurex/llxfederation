@@ -21,6 +21,8 @@ class Ldap:
                 self.passwd_bind = fd.readline().strip()
                 self.base_dn = fd.readline().strip()
                 self.ldap_uri = fd.readline().strip()
+                self.global_domain = fd.readline().strip()
+                self.alu_domain = fd.readline().strip()
         else:
             self.user_bind = ""
             self.passwd_bind = ""
@@ -107,12 +109,16 @@ class Ldap:
     def populate_user(self, user_info):
         user = self.set_user_info_to_ldap_result(user_info)
         group_list = []
+        s = SSSDMapper()
         for g_item in user_info["memberOf"]:
             item = self.get_ldap_group_by_sid(g_item.decode('utf-8'))
             if item is not None:
-                group_list.append(item)
+                g = Group(item['cn'], s.get_unix_uid_from_sid(item['sid']))
+                group_list.append(g)
         if (res := self.get_ldap_group_by_rid(user_info['primaryGroupID'])) is not None:
-            group_list.append(res)
+            g = Group(res['cn'], s.get_unix_uid_from_sid(res['sid']))
+            group_list.append(g)
+        user.groups = group_list
         user.populate_user()
         return user
 
@@ -130,7 +136,14 @@ class Ldap:
             if user_info is not None:
                 user = self.populate_user(user_info)
                 try:
-                    self.conn.simple_bind_s(username, password)
+                    if "userPrincipalName" in user_info:
+                        patch_username = user_info["userPrincipalName"][0].decode('utf-8')
+                    else:
+                        if "." in username:
+                            patch_username = username + "@" + self.global_domain
+                        else:
+                            patch_username = username + "@" + self.alu_domain
+                    self.conn.simple_bind_s(patch_username, password)
                 except Exception as e:
                     if e.args[0]['result'] == 49:
                         return None, "invalid_grant"

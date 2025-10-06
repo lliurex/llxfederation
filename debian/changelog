@@ -1,8 +1,9 @@
-llxfederation (0.4.1) noble; urgency=medium
+llxfederation (0.5) noble; urgency=medium
 
-  * Testing
+  * Refactoring
+  * Add domain users group
 
- -- Raul Rodrigo Segura <raurodse@gmail.com>  Fri, 03 Oct 2025 13:55:39 +0200
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Mon, 06 Oct 2025 18:09:26 +0200
 
 llxfederation (0.4) noble; urgency=medium
 

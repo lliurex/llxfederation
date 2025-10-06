@@ -53,7 +53,7 @@ Architecture: all
 Multi-Arch: foreign
 Depends: lliurex-gva-gate,
 	 cdc-mapper-data,
-	 llxfederation
+	 llxfederation-bin
 Description: Enable validation with gva federation
  Configure system to enable validation with federation. This package not
  include server configuration

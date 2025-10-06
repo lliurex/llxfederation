@@ -5,10 +5,11 @@ from llxfederation.mapper import CdcMapper
 class User:
 
     def __init__(self, login) -> None:
-        self.login = login
+        clean_login = login.split("@")[0]
+        self.login = clean_login
         self.name = ""
         self.surname = ""
-        self.home = "/home/{}".format(login)
+        self.home = "/home/{}".format(clean_login)
         self.shell = "/bin/bash"
         self.uid = -1
         self.gid = -1
@@ -16,6 +17,7 @@ class User:
 
     def populate_user(self):
         user_mod = 0
+        temp_groups = {}
         for x in self.groups:
             group_lower = x.name.lower()
             if "docente" in group_lower:
@@ -30,23 +32,28 @@ class User:
                 g = Group(x["name"], x["gid"])
                 if "default_gid" in x:
                     g.default_gid = x["default_gid"]
-                self.groups.append(g)
-            max_id = 0
-            for x in self.groups:
-                if x.default_gid is not None:
-                    if x.default_gid > max_id:
-                        max_id = x.default_gid
-                        self.gid = x
+                temp_groups[g.name] = g
+        max_id = 0
+        for name,item in temp_groups.items():
+            self.groups.append(item)
+        for x in self.groups:
+            if x.default_gid > -1 :
+                if x.default_gid > max_id:
+                    max_id = x.default_gid
+                    self.gid = x
 
     def __str__(self) -> str:
-        return dumps(self.__dict__, indent=4, ensure_ascii=False)
+        return dumps(self.__dict__, 
+                     default=lambda o: o.__dict__,
+                     indent=4, 
+                     ensure_ascii=False)
 
 
 class Group:
     def __init__(self, name, gid) -> None:
         self.name = name
         self.gid = gid
-        self.default_gid = None
+        self.default_gid = -1
 
     def __str__(self) -> str:
         return dumps(self.__dict__, indent=4, ensure_ascii=False)

@@ -11,20 +11,19 @@ class Adi:
         try:
             server = n4d_local.get_variable('SRV_IP')
         except Exception:
-            self.process_exit_error("temporary_unavailable")
+            return None, "temporary_unavailable"
         if server is not None:
             n4d_remote = Client("https://"+server+":9779")
             try:
                 result = n4d_remote.GvaGate.validate_id_user(username, password)
-                user = self.populate_user_object(result)
             except CallFailedError as e:
-                if e.code == -10:
-                    sys.exit(1)
-                if e.code == -11:
-                    sys.exit(3)
-                if e.code == -20:
-                    sys.exit(2)
+                if e.code == -10 or e.code == -11 or e.code == -20:                    
+                    return None, "invalid_grant"
+                else:
+                    return None, "invalid_response"
             except Exception:
                 # Adi not found
-                sys.exit(14)
-        print(user)
+                return None, "invalid_response"
+        else:
+            return None, "temporary_unavailable"
+        return result, None

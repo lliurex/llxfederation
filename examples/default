@@ -1,0 +1,4 @@
+{
+	"auth_methods": {"value":"ad","priority":500,"unique":false},
+	"expiration": {"value":72, "priority":500, "unique":true}
+}

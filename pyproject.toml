@@ -14,7 +14,8 @@ license = {text="GPL-3"}
 urls = {repository="https://github.com/lliurex/llxfederation"}
 
 [tool.setuptools]
-packages = ["llxfederation"]
+packages = ["llxfederation","gvaauthupdate"]
 
 [tool.setuptools.package-dir]
 llxfederation = "lib"
+gvaauthupdate = "lib-gvaauthupdate"

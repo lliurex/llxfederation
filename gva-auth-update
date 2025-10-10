@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+import curses
+import gvaauthupdate
+
+def main(stdscr):
+    curses.curs_set(0)
+    stdscr.clear()
+    
+    g = gvaauthupdate.GvaAuthUpdate()
+    opciones = g.get_ordered_default_auth_methods()
+    seleccionadas = [False] * len(opciones)
+    real_conf = g.get_default_auth_methods()
+    for i, op in enumerate(opciones):
+        if op in real_conf:
+            seleccionadas[i] = True
+    cursor = 0
+    modo_botones = False
+    boton_activo = 0  # 0 = Aceptar, 1 = Cancelar
+
+    def dibujar():
+        stdscr.clear()
+        stdscr.addstr(0, 2, "Usa ↑↓ para moverte, Espacio para marcar, u/d para mover ↑↓", curses.A_BOLD)
+        stdscr.addstr(1, 2, "Enter para aceptar o cancelar, ESC para salir", curses.A_BOLD)
+
+        for i, op in enumerate(opciones):
+            marcado = "[x]" if seleccionadas[i] else "[ ]"
+            if not modo_botones and i == cursor:
+                stdscr.addstr(i + 3, 4, f"> {marcado} {op}", curses.A_REVERSE)
+            else:
+                stdscr.addstr(i + 3, 4, f"  {marcado} {op}")
+
+        # Dibujar botones
+        h, w = stdscr.getmaxyx()
+        y = h - 3
+        x_aceptar = w // 2 - 12
+        x_cancelar = w // 2 + 2
+        stdscr.addstr(y, x_aceptar, "[ Aceptar ]",
+                      curses.A_REVERSE if modo_botones and boton_activo == 0 else curses.A_NORMAL)
+        stdscr.addstr(y, x_cancelar, "[ Cancelar ]",
+                      curses.A_REVERSE if modo_botones and boton_activo == 1 else curses.A_NORMAL)
+
+        stdscr.refresh()
+
+    while True:
+        dibujar()
+        tecla = stdscr.getch()
+
+        if tecla == 27:  # ESC → cancelar
+            break
+
+        if not modo_botones:
+            # Navegar por la lista
+            if tecla == curses.KEY_UP and cursor > 0:
+                cursor -= 1
+            elif tecla == curses.KEY_DOWN:
+                if cursor < len(opciones) - 1:
+                    cursor += 1
+                else:
+                    modo_botones = True
+                    boton_activo = 0
+            elif tecla == ord(' '):
+                seleccionadas[cursor] = not seleccionadas[cursor]
+            elif tecla == ord('u') and cursor > 0:
+                # Mover elemento hacia arriba
+                opciones[cursor - 1], opciones[cursor] = opciones[cursor], opciones[cursor - 1]
+                seleccionadas[cursor - 1], seleccionadas[cursor] = seleccionadas[cursor], seleccionadas[cursor - 1]
+                cursor -= 1
+            elif tecla == ord('d') and cursor < len(opciones) - 1:
+                # Mover elemento hacia abajo
+                opciones[cursor + 1], opciones[cursor] = opciones[cursor], opciones[cursor + 1]
+                seleccionadas[cursor + 1], seleccionadas[cursor] = seleccionadas[cursor], seleccionadas[cursor + 1]
+                cursor += 1
+        else:
+            # Modo botones
+            if tecla in [curses.KEY_LEFT, curses.KEY_RIGHT, 9]:  # Tab o flechas
+                boton_activo = 1 - boton_activo
+            elif tecla == curses.KEY_UP:
+                modo_botones = False
+            elif tecla in [10, 13]:  # Enter
+                if boton_activo == 0:  # Aceptar
+                    with open("seleccion.txt", "w") as f:
+                        for op, sel in zip(opciones, seleccionadas):
+                            if sel:
+                                f.write(op + "\n")
+                    break
+                else:  # Cancelar
+                    break
+
+if __name__ == "__main__":
+    curses.wrapper(main)
+

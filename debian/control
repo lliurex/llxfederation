@@ -25,6 +25,14 @@ Depends: python3-ldap,
 Description: Python library to connect different backends
  Connect with ldap library
 
+Package: pyhton3-gvaauthupdate
+Architecture: all
+Depends: 
+	 ${shlibs:Depends},
+	 ${misc:Depends},
+Description: Python library to connect different backends
+ Connect with ldap library
+
 Package: llxfederation-bin
 Architecture: all
 Multi-Arch: foreign

@@ -25,7 +25,7 @@ Depends: python3-ldap,
 Description: Python library to connect different backends
  Connect with ldap library
 
-Package: pyhton3-gvaauthupdate
+Package: python3-gvaauthupdate
 Architecture: all
 Depends: 
 	 ${shlibs:Depends},

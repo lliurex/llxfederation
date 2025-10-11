@@ -1,1 +1,2 @@
-debian/output/usr/lib/python3*/dist-packages/gvaauthupdate/ /usr/lib/python3/dist-packages/gvaauthupdate/
+debian/output/usr/lib/python3*/dist-packages/gvaauthupdate/ /usr/lib/python3/dist-packages
+gva-auth-update /usr/sbin

@@ -21,6 +21,7 @@ set -e
 case "$1" in
     configure)
 	    pam-auth-update --force --package federation-validation --enable mkhomedir
+	    gva-auth-update -u
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

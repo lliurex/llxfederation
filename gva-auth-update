@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 import curses
 import gvaauthupdate
+import sys
+
+
+def unnattended_upgrade():
+    g = gvaauthupdate.GvaAuthUpdate()
+    default_methods = g.get_ordered_default_auth_methods()
+    g.save_real_auth_methods(default_methods)
 
 def main(stdscr):
     curses.curs_set(0)
     stdscr.clear()
-    
     g = gvaauthupdate.GvaAuthUpdate()
-    opciones = g.get_ordered_default_auth_methods
+    opciones = g.get_ordered_default_auth_methods()
     seleccionadas = [False] * len(opciones)
-    real_conf = g.get_default_auth_methods()
+    real_conf = g.get_real_auth_methods()
     for i, op in enumerate(opciones):
         if op in real_conf:
             seleccionadas[i] = True
@@ -78,14 +84,19 @@ def main(stdscr):
                 modo_botones = False
             elif tecla in [10, 13]:  # Enter
                 if boton_activo == 0:  # Aceptar
-                    with open("seleccion.txt", "w") as f:
-                        for op, sel in zip(opciones, seleccionadas):
-                            if sel:
-                                f.write(op + "\n")
+                    new_options = []
+                    for op,i in zip(opciones, seleccionadas):
+                        if i:
+                            new_options.append(op)
+                    g.save_real_auth_methods(new_options)
                     break
                 else:  # Cancelar
                     break
 
 if __name__ == "__main__":
-    curses.wrapper(main)
+    args = sys.argv
+    if "-u" in args:
+       unnattended_upgrade() 
+    else:
+        curses.wrapper(main)
 

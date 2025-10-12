@@ -4,7 +4,7 @@ import json
 
 class GvaAuthUpdate:
     def __init__(self)->None:
-       self.dest_path = Path("/etc/llx-gva-gate.conf") 
+       self.dest_path = Path("/etc/llx-gva-gate.cfg") 
        self.conf_path = Path("/usr/share/gva-auth-update/conf.d")
 
     def get_real_config(self)->dict:

@@ -7,7 +7,7 @@ def main(stdscr):
     stdscr.clear()
     
     g = gvaauthupdate.GvaAuthUpdate()
-    opciones = g.get_ordered_default_auth_methods()
+    opciones = g.get_ordered_default_auth_methods
     seleccionadas = [False] * len(opciones)
     real_conf = g.get_default_auth_methods()
     for i, op in enumerate(opciones):

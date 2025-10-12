@@ -20,16 +20,21 @@ class GvaAuthUpdate:
             return self.get_real_config()["auth_methods"]
         return None
 
-    def get_default_auth_methods(self)->list:
+    def get_default_configs(self)->list:
         configs = []
         for x in self.conf_path.iterdir():
             configs.append(json.loads(x.read_text(encoding="utf-8")))
         return configs
 
-    def get_ordered_default_auth_methods(self)->list:
-        return sorted(self.get_default_auth_methods(),
-                      key=lambda x: x["priority"],
+    def get_ordered_default_configs(self)->list:
+        return sorted(self.get_default_configs(),
+                      key=lambda x: x["auth_methods"]["priority"],
                       reverse=True)
+
+    def get_ordered_default_auth_methods(self)->list:
+        configs_ordered = self.get_ordered_default_configs()
+        return [x["auth_methods"]["value"] for x in configs_ordered ]
+
 
     def save_real_auth_methods(self, methods)->bool:
         if type(methods) is list:

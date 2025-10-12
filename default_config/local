@@ -1,0 +1,3 @@
+{
+	"auth_methods": {"value":"local","priority":100,"unique":false}
+}

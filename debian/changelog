@@ -1,3 +1,9 @@
+llxfederation (0.6.3) noble; urgency=medium
+
+  * Testing new cli
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Sun, 12 Oct 2025 13:39:51 +0200
+
 llxfederation (0.6.1) noble; urgency=medium
 
   * Install correct dependency

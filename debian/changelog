@@ -1,3 +1,9 @@
+llxfederation (0.8) noble; urgency=medium
+
+  * Add dependency 
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Mon, 13 Oct 2025 17:50:54 +0200
+
 llxfederation (0.7) noble; urgency=medium
 
   * Add gva-auth-update to manage llx-gva-gate.cfg

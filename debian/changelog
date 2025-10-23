@@ -1,3 +1,9 @@
+llxfederation (0.9) noble; urgency=medium
+
+  * Fix groups 
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Thu, 23 Oct 2025 13:11:20 +0200
+
 llxfederation (0.8) noble; urgency=medium
 
   * Add dependency 

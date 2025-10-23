@@ -20,11 +20,11 @@ class User:
         temp_groups = {}
         for x in self.groups:
             group_lower = x.name.lower()
-            if "docente" in group_lower:
+            if group_lower.startswith("doc"):
                 user_mod = user_mod | CdcMapper.TEACHERS
-            if "alumno" in group_lower:
+            if group_lower.startswith("alu"):
                 user_mod = user_mod | CdcMapper.STUDENTS
-            if "admin" in group_lower:
+            if group_lower.startswith("adm"):
                 user_mod = user_mod | CdcMapper.ADMINS
             cdcmapper = CdcMapper()
             aux_group = cdcmapper.get_groups(user_mod)

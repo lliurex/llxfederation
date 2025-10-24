@@ -1,3 +1,9 @@
+llxfederation (0.10) noble; urgency=medium
+
+  * Bug: ask directly to server inside get srv_ip. This action avoid timeout
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Fri, 24 Oct 2025 11:33:19 +0200
+
 llxfederation (0.9) noble; urgency=medium
 
   * Fix groups 

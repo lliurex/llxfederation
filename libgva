@@ -72,17 +72,11 @@ class GvaGate:
         return user
 
     def sync_with_adi(self, method):
-        n4d_local = Client("https://localhost:9779")
+        n4d_remote = Client("https://server:9779")
         try:
-            server = n4d_local.get_variable('SRV_IP')
+            n4d_remote.GvaGate.store_id_user(self.user, self.password, method)
         except Exception:
-            server = None
-        if server is not None:
-            n4d_remote = Client("https://"+server+":9779")
-            try:
-                n4d_remote.GvaGate.store_id_user(self.user, self.password, method)
-            except Exception:
-                pass
+            pass
 
     def run(self):
         m = self.method.lower()

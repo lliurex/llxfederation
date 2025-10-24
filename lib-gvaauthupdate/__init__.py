@@ -11,7 +11,7 @@ class GvaAuthUpdate:
         try:
             content = json.loads(self.dest_path.read_text(encoding="utf-8"))
         except Exception:
-            content = {"auth_methods":["local"], "expiration":72}
+            content = {"auth_methods":["local"], "expire":72}
         return content
 
     def get_real_auth_methods(self)->list|None:

@@ -75,7 +75,7 @@ class Ldap:
         for x in ["givenName", "displayName"]:
             if x in user_info:
                 if x == "displayName":
-                    given_name = user_info[x][0].decode('utf-8').split(",")[1].strip()
+                    given_name = gn_parts[1].strip() if len(gn_parts := user_info[x][0].decode('utf-8').split(",")) > 1 else gn_parts[0].strip()
                     break
                 if x == "givenName":
                     given_name = user_info[x][0].decode('utf-8')
@@ -131,7 +131,7 @@ class Ldap:
         except Exception:
             return None, "temporary_unavailable"
         try:
-            self.conn.simple_bind_s(self.user_bind, self.passwd_bind)
+            self.conn.simple_bind_s(self.user_bind, self.passwd_bind.encode('utf-8'))
             user_info = self.search_user_by_username(username.split("@")[0])
             if user_info is not None:
                 user = self.populate_user(user_info)

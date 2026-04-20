@@ -36,6 +36,7 @@ Description: Python library to connect different backends
 Package: llxfederation-bin
 Architecture: all
 Multi-Arch: foreign
+Replaces: llxfederation
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},

@@ -1,3 +1,9 @@
+llxfederation (0.10.2.1) noble; urgency=medium
+
+  * Add replaces to replace libgva file
+
+ -- Raul Rodrigo Segura <raurodse@gmail.com>  Mon, 20 Apr 2026 08:53:02 +0200
+
 llxfederation (0.10.2) noble; urgency=medium
 
   * Fix problem with split displayname

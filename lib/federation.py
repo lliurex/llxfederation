@@ -32,14 +32,21 @@ class Federation:
                 aux_config = safe_load(fd)
         self.config = default_config | aux_config
 
-    def populate_user_object(self, result):
+    def populate_user_object(self, result, username) -> User:
         s = SSSDMapper()
         data = self.default_user_struc.copy()
         data.update(result)
-        user = User(data["upn"].split("@")[0])
+        if type(data["upn"]) is str: 
+            user = User(data["upn"].split("@")[0])
+        elif type(data["upn"]) is list and len(data["upn"]) > 0:
+            user = User(data["upn"][0].split("@")[0])
+        else:
+            user = User(username)
         user.name = data["given_name"]
         user.surname = data["family_name"]
         user.uid = s.get_unix_uid_from_sid(result["primarysid"])
+        if type(data["group"]) is str:
+            data["group"] = [data["group"]]
         for x in range(0, len(data["group"])):
             try:
                 g = Group(data["group"][x], s.get_unix_uid_from_sid(data[Federation.group_schemas_name][x]))
@@ -74,7 +81,7 @@ class Federation:
             if "error" in result.keys():
                 return None, result["error"]
             if "id_token_claims" in result.keys():
-                user = self.populate_user_object(result["id_token_claims"])
+                user = self.populate_user_object(result["id_token_claims"], patch_username)
             else:
                 return None, "invalid_response"
         except Exception:

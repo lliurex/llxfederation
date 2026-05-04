@@ -65,8 +65,6 @@ class Federation:
         patch_username = username
         if len(username.split("@")) <= 1 :
             domain = self.config["global_domain"]
-            if "." not in username:
-                domain = self.config["student_domain_prefix"] +"." +domain
             patch_username = patch_username +"@" + domain
         try:
             app = PublicClientApplication(self.config["id_app"],

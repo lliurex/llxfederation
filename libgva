@@ -4,6 +4,7 @@ from llxfederation.ad import Ldap   # pyright: ignore[reportMissingImports]
 from llxfederation.user import User  # pyright: ignore[reportMissingImports]
 from llxfederation.federation import Federation   # pyright: ignore[reportMissingImports]
 from llxfederation.adi import Adi   # pyright: ignore[reportMissingImports]
+from llxfederation.easy import EasyLogin   # pyright: ignore[reportMissingImports]
 from n4d.client import Client   # pyright: ignore[reportMissingImports]
 from n4d.client import CallFailedError   # pyright: ignore[reportMissingImports]
 
@@ -13,7 +14,7 @@ class GvaGate:
     group_schemas_name = "https://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid"
 
     def __init__(self, args) -> None:
-        self.supported_methods = ["id", "adi", "cdc"]
+        self.supported_methods = ["id", "adi", "cdc","easy"]
         if len(args) > 2:
             self.user = args[0]
             self.password = args[1]
@@ -71,6 +72,13 @@ class GvaGate:
             self.process_exit_error(error)
         return user
 
+    def auth_easy(self):
+        a_provider = EasyLogin()
+        user, error = a_provider.auth_easy(self.user, self.password)
+        if error is not None:
+            self.process_exit_error(error)
+        return user
+
     def sync_with_adi(self, method):
         n4d_remote = Client("https://server:9779")
         try:
@@ -88,6 +96,9 @@ class GvaGate:
             user = self.auth_adi()
         elif m == "cdc":
             user = self.auth_cdc()
+        elif m == "easy":
+            user = self.auth_easy()
+
         else:
             return
         print(user)

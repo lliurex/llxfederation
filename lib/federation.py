@@ -47,6 +47,8 @@ class Federation:
         user.uid = s.get_unix_uid_from_sid(result["primarysid"])
         if type(data["group"]) is str:
             data["group"] = [data["group"]]
+        if type(data[Federation.group_schemas_name]) is str:
+            data[Federation.group_schemas_name] = [data[Federation.group_schemas_name]]
         for x in range(0, len(data["group"])):
             try:
                 g = Group(data["group"][x], s.get_unix_uid_from_sid(data[Federation.group_schemas_name][x]))

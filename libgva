@@ -4,7 +4,7 @@ from llxfederation.ad import Ldap   # pyright: ignore[reportMissingImports]
 from llxfederation.user import User  # pyright: ignore[reportMissingImports]
 from llxfederation.federation import Federation   # pyright: ignore[reportMissingImports]
 from llxfederation.adi import Adi   # pyright: ignore[reportMissingImports]
-from llxfederation.easy import EasyLogin   # pyright: ignore[reportMissingImports]
+#from llxfederation.easy import EasyLogin   # pyright: ignore[reportMissingImports]
 from n4d.client import Client   # pyright: ignore[reportMissingImports]
 from n4d.client import CallFailedError   # pyright: ignore[reportMissingImports]
 
@@ -73,11 +73,14 @@ class GvaGate:
         return user
 
     def auth_easy(self):
+        pass
+        '''
         a_provider = EasyLogin()
         user, error = a_provider.auth_easy(self.user, self.password)
         if error is not None:
             self.process_exit_error(error)
         return user
+        '''
 
     def sync_with_adi(self, method):
         n4d_remote = Client("https://server:9779")

@@ -1,11 +1,13 @@
 from msal import PublicClientApplication
 from pathlib import Path
 from yaml import safe_load
-from llxfederation.user import User, Group
-from llxfederation.mapper import SSSDMapper
 
+from llxgvagate.user import User, Group
+from llxgvagate.mapper import SSSDMapper
+from llxgvagate.base_plugin import BasePlugin 
+from llxgvagate.error import GvaGateError
 
-class Federation:
+class Id (BasePlugin):
 
     group_schemas_name = "https://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid"
 
@@ -47,18 +49,22 @@ class Federation:
         user.uid = s.get_unix_uid_from_sid(result["primarysid"])
         if type(data["group"]) is str:
             data["group"] = [data["group"]]
-        if type(data[Federation.group_schemas_name]) is str:
-            data[Federation.group_schemas_name] = [data[Federation.group_schemas_name]]
+        if type(data[Id.group_schemas_name]) is str:
+            data[Id.group_schemas_name] = [data[Id.group_schemas_name]]
         for x in range(0, len(data["group"])):
             try:
-                g = Group(data["group"][x], s.get_unix_uid_from_sid(data[Federation.group_schemas_name][x]))
+                g = Group(data["group"][x], s.get_unix_uid_from_sid(data[Id.group_schemas_name][x]))
                 user.groups.append(g)
             except Exception:
                 pass
         user.populate_user()
         return user
 
-    def auth_federation(self, username, password):
+    @property
+    def name(self) -> str:
+        return "id"
+
+    def authenticate(self, username, password, callback) -> User | None:
         self.load_config()
         result = {}
         user = None
@@ -71,7 +77,7 @@ class Federation:
                                           authority=self.config["url_auth"],
                                           timeout=5)
         except Exception:
-            return None, "temporary_unavailable"
+            return None, GvaGateError.ServerNotFound
         try:
             result = app.acquire_token_by_username_password(
                 patch_username,
@@ -79,12 +85,25 @@ class Federation:
                 scopes=["https://lliurex.login/openid"]
             )
             if "error" in result.keys():
-                return None, result["error"]
+                if result["error"] == "invalid_grant":
+                    codes = result.get("error_codes", [])
+                    if 50126 in codes:
+                        return None, GvaGateError.InvalidPassword
+                    elif 50034 in codes:
+                        return None, GvaGateError.UserNotFound
+                    elif 50079 in codes or 50076 in codes or 65002 in codes:
+                        return None, GvaGateError.InteractionRequired
+                    else:
+                        None, GvaGateError.Unauthorized
+                elif result["error"] == "unauthorized_client" or result["error"] == "invalid_client":
+                    return None, GvaGateError.BannedApp
+                else:
+                    return None, GvaGateError.Error
             if "id_token_claims" in result.keys():
                 user = self.populate_user_object(result["id_token_claims"], patch_username)
             else:
-                return None, "invalid_response"
+                return None, GvaGateError.InvalidResponse
         except Exception:
-            return None, "undefined_error"
-
-        return user, None
+            return None, GvaGateError.Error
+        callback("id")
+        return user, GvaGateError.Allowed

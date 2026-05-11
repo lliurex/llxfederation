@@ -5,8 +5,12 @@ from yaml import safe_load
 import n4d.responses
 from time import time
 from random import randrange
-from llxfederation.ad import Ldap
-from llxfederation.federation import Federation
+
+import importlib
+import inspect
+import types
+
+from llxgvagate.plugins.base import BasePlugin
 
 class GvaGate:
 
@@ -15,12 +19,14 @@ class GvaGate:
     PASSWORD_INVALID = -20
     WRONG_SAVE = -30
     SERVER_UNREACHABLE = -50
+    METHOD_NOT_SUPPORTED = -60
 
     def __init__(self) -> None:
         self.app = None
         self.config_path = Path("/etc/gvagate/config.yml")
         self.load_config()
         self.cache_path = Path(self.config["cache_path"])
+        self.plugins_path = Path("/usr/share/gva-gate/plugins")
 
     def load_config(self) -> None:
         '''
@@ -59,13 +65,23 @@ class GvaGate:
         if not self.user_need_update(username, password):
             return n4d.responses.build_successful_call_response(True)
 
-        if method == "id":
-            f_provider = Federation()
-            user, error = f_provider.auth_federation(username, password)
-        else:
-            l_provider = Ldap()
-            user, error = l_provider.auth_cdc(username, password)
 
+        plugins = [f.stem for f in self.plugins_path.glob("*.py")]
+
+        if method not in plugins:
+            return n4d.responses.build_failed_call_response(GvaGate.METHOD_NOT_SUPPORTED)
+        else:
+            loader = importlib.machinery.SourceFileLoader(method, self.plugins_path / f"{method}.py")
+            module = types.ModuleType(method)
+            loader.exec_module(module)
+            for _, obj in inspect.getmembers(module, inspect.isclass):
+                if issubclass(obj, BasePlugin) and obj is not BasePlugin:
+                    try:
+                        instance = obj()
+                        user, error = instance.authenticate(username, password)
+                    except Exception:
+                        return n4d.responses.build_failed_call_response(GvaGate.SERVER_UNREACHABLE)
+       
         if user is not None:
             user_info = {}
             user_info['info'] = user

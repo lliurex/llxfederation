@@ -1,10 +1,12 @@
 from pathlib import Path
 import ldap
-from llxfederation.user import User, Group
-from llxfederation.mapper import SSSDMapper
 
+from llxgvagate.user import User, Group
+from llxgvagate.mapper import SSSDMapper
+from llxgvagate.base_plugin import BasePlugin
+from llxgvagate.error import GvaGateError
 
-class Ldap:
+class Cdc(BasePlugin):
 
     def __init__(self):
         self.conn = None
@@ -122,14 +124,18 @@ class Ldap:
         user.populate_user()
         return user
 
-    def auth_cdc(self, username, password):
+    @property
+    def name(self):
+        return "cdc"
+
+    def authenticate(self, username, password, callback):
         self.load_config()
         try:
             self.conn = ldap.initialize(self.ldap_uri)
             self.conn.protocol_version = 3
             self.conn.set_option(ldap.OPT_REFERRALS, 0)
         except Exception:
-            return None, "temporary_unavailable"
+            return None, GvaGateError.ServerNotFound
         try:
             self.conn.simple_bind_s(self.user_bind, self.passwd_bind.encode('utf-8'))
             user_info = self.search_user_by_username(username.split("@")[0])
@@ -146,11 +152,11 @@ class Ldap:
                     self.conn.simple_bind_s(patch_username, password)
                 except Exception as e:
                     if e.args[0]['result'] == 49:
-                        return None, "invalid_grant"
+                        return None, GvaGateError.InvalidPassword
             else:
-                return None, "invalid_grant"
+                return None, GvaGateError.UserNotFound
         except Exception:
             # Undefined Error
-            return None, "undefined_error"
-        return user, None
-
+            return None, GvaGateError.Error
+        callback("cdc")
+        return user, GvaGateError.Allowed

@@ -21,18 +21,6 @@ Depends:
 Description: Python library to connect different backends
  Connect with ldap library
 
-Package: llxfederation-bin
-Architecture: all
-Multi-Arch: foreign
-Replaces: llxfederation
-Depends:
- ${shlibs:Depends},
- ${misc:Depends},
- python3-yaml,
- python3-llxfederation
-Description: Backend for validating with federation service
- Validate with GVA service
-
 Package: n4d-llxfederation
 Architecture: all
 Multi-Arch: foreign

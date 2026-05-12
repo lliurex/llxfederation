@@ -1,0 +1,2 @@
+cdc/cdc.py /usr/share/gva-gate/plugins/
+cdc/cdc /usr/share/gva-gate/plugins_info/

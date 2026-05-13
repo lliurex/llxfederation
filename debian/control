@@ -5,10 +5,6 @@ Maintainer: Lliurex Team <lliurex@gva.es>
 Rules-Requires-Root: no
 Build-Depends:
  debhelper-compat (= 13),
- dh-python,
- python3-setuptools,
- python3-all,
- pybuild-plugin-pyproject
 Standards-Version: 4.6.2
 Homepage: https://lliurex.net 
 #Vcs-Browser: https://salsa.debian.org/debian/llxfederation

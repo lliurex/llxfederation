@@ -9,18 +9,6 @@ Standards-Version: 4.6.2
 Homepage: https://lliurex.net 
 #Vcs-Browser: https://salsa.debian.org/debian/llxfederation
 
-Package: gva-gate-adi
-Architecture: all
-Multi-Arch: foreign
-Depends: 
-	 ${shlibs:Depends},
-	 ${misc:Depends},
-	 python3-llxgvagate,
-	 python3-gvaauthupdate,
-	 python3-n4d-client
-Description: Enable validation with adi as fallback
- Configure system to enable validation with adi computer. 
-
 Package: python3-gvaauthupdate
 Architecture: all
 Depends: 
@@ -49,9 +37,11 @@ Depends:
 	 ${shlibs:Depends},
 	 ${misc:Depends},
 	 lliurex-gva-gate,
+	 python3-llxgvagate,
 	 cdc-mapper-data,
-	 llxfederation-bin,
-	 python3-gvaauthupdate
+	 python3-gvaauthupdate,
+	 gva-gate-adi,
+	 gva-gate-cdc
 Description: Enable validation with gva federation
  Configure system to enable validation with federation. This package not
  include server configuration
@@ -81,3 +71,16 @@ Depends:
 	 python3-yaml
 Description: Enable validation with gva federation configuration
  Configure system to enable validation with gva federation configuration. This package not include server configuration
+
+Package: gva-gate-adi
+Architecture: all
+Multi-Arch: foreign
+Depends: 
+	 ${shlibs:Depends},
+	 ${misc:Depends},
+	 python3-llxgvagate,
+	 python3-gvaauthupdate,
+	 python3-n4d-client
+Description: Enable validation with adi as fallback
+ Configure system to enable validation with adi computer. 
+
